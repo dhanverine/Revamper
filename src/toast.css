@@ -1,0 +1,19 @@
+html{--dim:color-mix(in srgb,var(--line,#38e8ff) 34%,transparent);--faint:color-mix(in srgb,var(--line,#38e8ff) 12%,transparent)}
+html,body{margin:0;height:100%;background:transparent;overflow:hidden}
+body{font-family:Rajdhani,system-ui,sans-serif;color:var(--text,#fff)}
+.card{box-sizing:border-box;height:100%;padding:10px 14px 12px;display:flex;flex-direction:column;gap:5px;background:var(--hubbg,rgba(9,18,42,.94));border:1px solid var(--line,#38e8ff);clip-path:polygon(0 0,calc(100% - 14px) 0,100% 14px,100% 100%,14px 100%,0 calc(100% - 14px));cursor:default;user-select:none}
+.card[data-state="done"]{cursor:pointer}
+.top{display:flex;align-items:center;gap:8px;font:400 10px "JetBrains Mono",ui-monospace,monospace;letter-spacing:.14em;text-transform:uppercase;color:var(--line,#38e8ff)}
+#msg{flex:1;color:var(--dim,rgba(255,255,255,.5));white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#x{border:0;background:none;color:var(--dim,rgba(255,255,255,.5));font-size:12px;cursor:pointer;padding:0 14px 0 0}
+#x:hover{color:var(--hot,#fff)}
+.name{font:600 16px Rajdhani,system-ui,sans-serif;letter-spacing:.04em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bar{height:4px;background:var(--faint,rgba(255,255,255,.12));overflow:hidden}
+.bar i{display:block;height:100%;width:0;background:var(--hot,#f6e700);transition:width 160ms linear}
+.card[data-state="running"][data-indet="1"] .bar i{width:35%;animation:ind 1.1s ease-in-out infinite alternate}
+@keyframes ind{from{transform:translateX(0)}to{transform:translateX(185%)}}
+.card[data-state="error"]{border-color:#ff4d4d}
+.card[data-state="error"] .bar i{background:#ff4d4d;width:100%}
+.card[data-state="error"] .top span:first-child{color:#ff4d4d}
+.hint{font:400 10px "JetBrains Mono",ui-monospace,monospace;letter-spacing:.06em;color:var(--dim,rgba(255,255,255,.5));white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-height:12px}
+@media (prefers-reduced-motion:reduce){.bar i{transition:none}.card[data-state="running"][data-indet="1"] .bar i{animation:none}}

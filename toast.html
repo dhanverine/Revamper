@@ -1,0 +1,17 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Revamper toast</title>
+  </head>
+  <body>
+    <div class="card" id="card" data-state="running" role="status" aria-live="polite">
+      <div class="top"><span id="act">REVAMPER</span><span id="msg"></span><button id="x" aria-label="Close">&#x2715;</button></div>
+      <div class="name" id="name"></div>
+      <div class="bar"><i id="fill"></i></div>
+      <div class="hint" id="hint"></div>
+    </div>
+    <script type="module" src="/src/toast.js"></script>
+  </body>
+</html>

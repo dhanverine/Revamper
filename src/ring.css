@@ -1,0 +1,43 @@
+/* Revamper ring styles. Palette values come from CSS variables set by palettes.js. */
+:root{--line:#F6E700;--hot:#F6E700;--fill:#F3680F;--text:#FFD0B8;--drop:#97E4C2;--accent:#F3680F;--slice:rgba(17,31,67,.86);--hubbg:rgba(9,18,42,.94);
+ --dim:color-mix(in srgb,var(--line) 34%,transparent);--faint:color-mix(in srgb,var(--line) 12%,transparent);--hotfill:color-mix(in srgb,var(--fill) 42%,transparent)}
+
+html,body{margin:0;background:transparent;overflow:hidden;font-family:Rajdhani,system-ui,sans-serif}
+.ring-scene{width:600px;height:600px;display:grid;place-items:center;perspective:1100px}
+.ring-stage{width:600px;height:600px;position:relative;transform-style:preserve-3d}
+.ring{width:600px;height:600px;position:relative;transform-style:preserve-3d}
+.tilt{position:absolute;inset:0;transform-style:preserve-3d;will-change:transform}
+.layer{position:absolute;inset:0;transform-style:preserve-3d;transform:translateZ(var(--z,0px));pointer-events:none}
+.layer svg{position:absolute;left:0;top:0;width:600px;height:600px;overflow:visible}
+.mono{font-family:"JetBrains Mono",ui-monospace,monospace}
+.lin,.spinw{position:absolute;inset:0}
+.spinw{animation:spin 90s linear infinite;will-change:transform}
+.spinw.rev{animation-duration:60s;animation-direction:reverse}
+.ring.paused .spinw,.ring.paused .sweep{animation-play-state:paused}
+@keyframes spin{to{transform:rotate(360deg)}}
+.sweep{position:absolute;left:70px;top:70px;width:460px;height:460px;border-radius:50%;
+  background:conic-gradient(from 0deg,transparent 0 292deg,var(--faint) 335deg,var(--dim) 360deg);
+  -webkit-mask:radial-gradient(circle,transparent 0 98px,#000 99px 226px,transparent 227px);mask:radial-gradient(circle,transparent 0 98px,#000 99px 226px,transparent 227px);
+  animation:spin 7s linear infinite;will-change:transform}
+/* entrance */
+.ring:not(.play) .lin,.ring:not(.play) .sl{opacity:0}
+.ring.play .lin{animation:bloom 520ms cubic-bezier(.2,1.12,.3,1) both;animation-delay:calc(var(--i,0)*55ms)}
+.ring.play .sl{transform-origin:300px 300px;animation:bloom 460ms cubic-bezier(.2,1.12,.3,1) both;animation-delay:calc(120ms + var(--i,0)*34ms)}
+@keyframes bloom{from{opacity:0;transform:scale(.72)}to{opacity:1;transform:scale(1)}}
+/* slices */
+.s .body{fill:var(--slice);stroke:var(--dim);stroke-width:1.2;transition:fill 90ms,stroke 90ms}
+.s .glow{fill:none;stroke:var(--line);stroke-width:7;opacity:0;transition:opacity 110ms}
+.s .lab{fill:var(--text);font:700 11.5px Rajdhani,system-ui,sans-serif;letter-spacing:.05em;text-anchor:middle;text-transform:uppercase;transition:fill 90ms}
+.s .idx{fill:var(--dim);font:400 9px "JetBrains Mono",monospace;text-anchor:middle;transition:fill 90ms}
+.s .gl{fill:none;stroke:var(--text);stroke-width:1.2;stroke-linecap:round;stroke-linejoin:round;transition:stroke 90ms}
+.s .sel{fill:none;stroke:var(--hot);stroke-width:3;opacity:0;transition:opacity 110ms}
+.s .tick{stroke:var(--hot);stroke-width:1.5;opacity:0;transition:opacity 110ms}
+.s.hot .body{fill:var(--hotfill);stroke:var(--hot)}
+.s.hot .glow{opacity:.22}
+.s.hot .sel,.s.hot .tick{opacity:1}
+.s.hot .lab{fill:var(--hot)} .s.hot .idx{fill:var(--hot)} .s.hot .gl{stroke:var(--hot)}
+.s.hit .body{fill:var(--drop);stroke:var(--drop);transition:none}
+.hubT{fill:var(--hot);font:700 16px Rajdhani,system-ui,sans-serif;letter-spacing:.22em;text-anchor:middle;text-transform:uppercase}
+.hubS{fill:var(--text);opacity:.8;font:400 8.5px "JetBrains Mono",monospace;letter-spacing:.08em;text-anchor:middle;text-transform:uppercase}
+.rd{fill:var(--text);opacity:.7;font:400 9px "JetBrains Mono",monospace;letter-spacing:.1em;text-transform:uppercase}
+@media (prefers-reduced-motion:reduce){.spinw,.sweep{animation:none}.ring.play .lin,.ring.play .sl{animation:fadeIn 120ms linear both}@keyframes fadeIn{from{opacity:0}to{opacity:1}}.tilt{transform:none!important}}

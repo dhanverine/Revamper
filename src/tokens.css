@@ -1,0 +1,18 @@
+/* Revamper tokens: Sanzo Wada hues (Dull Violet Black, Citron Yellow, Brown, Seashell Pink, Glaucous Green), lifted to high chroma and lightness in OKLCH. */
+:root {
+  --bg: #09122A;
+  --surface: #111F43;
+  --surface-raised: #192D5D;
+  --border: #374C79;
+  --text: #F9F5E6;
+  --text-muted: #ABB8D2;
+  --accent: #F6E700;      /* Citron, vivid */
+  --on-accent: #09122A;
+  --warm: #F3680F;        /* Brown, vivid burnt orange */
+  --pink: #FFD0B8;        /* Seashell Pink */
+  --green: #97E4C2;       /* Glaucous Green */
+  --danger: #FF6053;
+  --font-ui: Inter, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+  --radius-sm: 8px; --radius-md: 12px; --radius-lg: 16px;
+}

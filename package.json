@@ -1,0 +1,26 @@
+{
+  "name": "revamper",
+  "private": true,
+  "version": "0.0.1",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "tauri": "tauri"
+  },
+  "dependencies": {
+    "@tauri-apps/api": "^2",
+    "@fontsource/rajdhani": "^5",
+    "@fontsource/jetbrains-mono": "^5"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2",
+    "vite": "^6"
+  },
+  "description": "Free, open-source Windows utility: hold Shift, drag a file, drop it on a slice.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/dhanverine/Revamper.git"
+  }
+}

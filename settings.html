@@ -1,0 +1,40 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Revamper settings</title>
+  </head>
+  <body>
+    <main class="settings">
+      <section class="preview" id="preview" aria-label="Live preview">
+        <div class="ring-scene" id="previewScene"><div class="ring-stage" id="stage"></div></div>
+      </section>
+      <aside class="panel">
+        <h1>Revamper</h1>
+        <p class="hint">Hold Shift while dragging a file, then drop it on a slice. Move the mouse over the preview to try it.</p>
+        <h2>Design</h2>
+        <div class="designs" id="designs" role="radiogroup" aria-label="Design"></div>
+        <h2>Colours</h2>
+        <div class="palettes" id="palettes" role="radiogroup" aria-label="Colours"></div>
+        <div class="custom" id="custom" hidden>
+          <label>Line<input type="color" id="cLine" /></label>
+          <label>Highlight<input type="color" id="cHot" /></label>
+          <label>Drop<input type="color" id="cDrop" /></label>
+        </div>
+        <h2>Actions</h2>
+        <div class="fields" id="actions">
+          <label>Quality<select data-k="quality"><option value="high">High</option><option value="balanced">Balanced</option><option value="small">Smallest file</option></select></label>
+          <label>Convert video to<select data-k="videoFmt"><option>mp4</option><option>mkv</option><option>webm</option></select></label>
+          <label>Convert image to<select data-k="imageFmt"><option>jpg</option><option>png</option><option>webp</option><option>bmp</option></select></label>
+          <label>Audio format (Convert, Extract)<select data-k="audioFmt"><option>mp3</option><option>wav</option><option>flac</option><option>opus</option><option>m4a</option></select></label>
+          <label>Crop ratio<select data-k="crop"><option>1:1</option><option>16:9</option><option>9:16</option><option>4:3</option><option>3:4</option></select></label>
+          <label>Merge photos<select data-k="imageLayout"><option value="row">Side by side</option><option value="column">One above the other</option></select></label>
+          <label>Trim from (seconds)<input type="number" min="0" step="0.1" data-k="trimStart" /></label>
+          <label>Trim to (seconds, 0 = end)<input type="number" min="0" step="0.1" data-k="trimEnd" /></label>
+        </div>
+      </aside>
+    </main>
+    <script type="module" src="/src/settings.js"></script>
+  </body>
+</html>

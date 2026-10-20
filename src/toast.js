@@ -33,6 +33,10 @@ listen("job-update", (e) => {
     $("msg").textContent = "done";
     $("hint").textContent = j.output ? "Click to show in folder" : "";
     if (j.index >= j.total) hideTimer = setTimeout(hide, 6000);
+  } else if (j.state === "cancelled") {
+    $("msg").textContent = "stopped";
+    $("hint").textContent = "";
+    hideTimer = setTimeout(hide, 2500);
   } else {
     $("msg").textContent = "failed";
     $("hint").textContent = j.message;
@@ -46,4 +50,5 @@ card.addEventListener("click", () => {
     hide();
   }
 });
+$("cancel").addEventListener("click", (ev) => { ev.stopPropagation(); invoke("cancel_job").catch(() => {}); });
 $("x").addEventListener("click", (ev) => { ev.stopPropagation(); hide(); });

@@ -3,6 +3,8 @@
 Hold **Shift**, drag a file, and drop it on a slice of the ring that appears under your cursor.
 Everything runs on your own computer. Nothing is uploaded. Free and open source (MIT).
 
+![Revamper settings and ring preview](docs/screenshot.png)
+
 | Slice    | What it does                                                         |
 | -------- | -------------------------------------------------------------------- |
 | Convert  | Photos, video or audio to another format (pick formats in Settings)  |
@@ -10,7 +12,7 @@ Everything runs on your own computer. Nothing is uploaded. Free and open source 
 | Crop     | Photos and video to a ratio such as 1:1 or 16:9                      |
 | Trim     | Keep a section of a video or audio file                              |
 | Merge    | Join several videos or audio files, or place photos side by side     |
-| Extract  | Pull the audio out of a video                                        |
+| Extract  | Unpack a zip, 7z, rar or tar file, or pull the audio out of a video  |
 
 Results are saved next to the original with a suffix (for example `holiday_compressed.mp4`). Originals are never changed.
 A small notice in the corner shows progress; click it to show the file in its folder.

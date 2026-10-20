@@ -28,3 +28,5 @@ h2{margin:26px 0 10px;font:400 10px "JetBrains Mono",ui-monospace,monospace;lett
 .fields select,.fields input{padding:9px 10px;border:0;border-radius:10px;background:rgba(255,255,255,.06);color:#e9eefb;font:600 15px Rajdhani,system-ui,sans-serif;letter-spacing:.04em;box-shadow:0 0 0 1px rgba(255,255,255,.1) inset}
 .fields select option{background:#0a1020}
 .fields select:focus-visible,.fields input:focus-visible{outline:2px solid var(--line)}
+.check{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:12px;background:rgba(255,255,255,.04);box-shadow:0 0 0 1px rgba(255,255,255,.08) inset;cursor:pointer}
+.check input{width:18px;height:18px;accent-color:var(--line)}

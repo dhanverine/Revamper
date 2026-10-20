@@ -3,6 +3,7 @@ import "./fonts.js";
 import "./ring.css";
 import "./settings.css";
 import { emit } from "@tauri-apps/api/event";
+import { invoke } from "@tauri-apps/api/core";
 import { RingView, sliceAt, C } from "./ring.js";
 import { PALETTES, DESIGNS, loadSettings, saveSettings, applyPalette } from "./palettes.js";
 
@@ -92,4 +93,11 @@ document.querySelectorAll("#actions [data-k]").forEach((el) => {
     s.actions[k] = el.type === "number" ? Math.max(0, parseFloat(el.value) || 0) : el.value;
     commit();
   });
+});
+
+// Launch at Windows startup
+const auto = document.getElementById("autostart");
+invoke("get_autostart").then((on) => { auto.checked = !!on; }).catch(() => {});
+auto.addEventListener("change", () => {
+  invoke("set_autostart", { enabled: auto.checked }).catch(() => { auto.checked = !auto.checked; });
 });

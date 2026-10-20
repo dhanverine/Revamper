@@ -5,10 +5,34 @@ use std::{
     io::{BufRead, BufReader, Read},
     os::windows::process::CommandExt,
     path::{Path, PathBuf},
-    process::{Command, Stdio},
-    sync::OnceLock,
+    process::{Child, Command, Stdio},
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc, Mutex, OnceLock,
+    },
     thread,
 };
+
+static CANCELLED: AtomicBool = AtomicBool::new(false);
+static ACTIVE: Mutex<Option<Arc<Mutex<Child>>>> = Mutex::new(None);
+
+/// Stop the running FFmpeg job (and any later files in the same drop).
+pub fn cancel() {
+    CANCELLED.store(true, Ordering::SeqCst);
+    if let Ok(g) = ACTIVE.lock() {
+        if let Some(c) = g.as_ref() {
+            if let Ok(mut ch) = c.lock() {
+                let _ = ch.kill();
+            }
+        }
+    }
+}
+pub fn reset_cancel() {
+    CANCELLED.store(false, Ordering::SeqCst);
+}
+pub fn is_cancelled() -> bool {
+    CANCELLED.load(Ordering::SeqCst)
+}
 
 const NO_WINDOW: u32 = 0x0800_0000;
 
@@ -187,7 +211,27 @@ pub fn probe(ff: &Path, path: &Path) -> Probe {
     p
 }
 
+fn friendly(err: &str) -> Option<&'static str> {
+    let l = err.to_lowercase();
+    if l.contains("permission denied") {
+        Some("Windows would not let me read or write this file. It may be open in another app.")
+    } else if l.contains("no such file") {
+        Some("File not found. It may have been moved or deleted.")
+    } else if l.contains("invalid data found") || l.contains("moov atom not found") {
+        Some("This file looks damaged or is not a supported format.")
+    } else if l.contains("no space left") {
+        Some("The disk is full.")
+    } else if l.contains("filename too long") {
+        Some("The file path is too long for Windows.")
+    } else {
+        None
+    }
+}
+
 fn tail(err: &str) -> String {
+    if let Some(m) = friendly(err) {
+        return m.to_string();
+    }
     let line = err.lines().rev().map(|l| l.trim()).find(|l| !l.is_empty()).unwrap_or("FFmpeg failed");
     let mut s: String = line.chars().take(200).collect();
     if s.is_empty() {
@@ -197,7 +241,7 @@ fn tail(err: &str) -> String {
 }
 
 fn run_ffmpeg(ff: &Path, args: &[String], dur: Option<f64>, prog: &mut dyn FnMut(Option<f64>)) -> Result<(), String> {
-    let mut child = cmd(ff)
+    let mut spawned = cmd(ff)
         .args(["-hide_banner", "-nostdin", "-y", "-progress", "pipe:1", "-nostats"])
         .args(args)
         .stdin(Stdio::null())
@@ -205,8 +249,17 @@ fn run_ffmpeg(ff: &Path, args: &[String], dur: Option<f64>, prog: &mut dyn FnMut
         .stderr(Stdio::piped())
         .spawn()
         .map_err(|e| format!("Could not start FFmpeg: {e}"))?;
-    let mut stderr = child.stderr.take().ok_or("no stderr")?;
-    let stdout = child.stdout.take().ok_or("no stdout")?;
+    let mut stderr = spawned.stderr.take().ok_or("no stderr")?;
+    let stdout = spawned.stdout.take().ok_or("no stdout")?;
+    let child = Arc::new(Mutex::new(spawned));
+    if let Ok(mut g) = ACTIVE.lock() {
+        *g = Some(child.clone());
+    }
+    if is_cancelled() {
+        if let Ok(mut ch) = child.lock() {
+            let _ = ch.kill();
+        }
+    }
     let reader = thread::spawn(move || {
         let mut b = Vec::new();
         let _ = stderr.read_to_end(&mut b);
@@ -222,8 +275,17 @@ fn run_ffmpeg(ff: &Path, args: &[String], dur: Option<f64>, prog: &mut dyn FnMut
             }
         }
     }
-    let status = child.wait();
+    let status = match child.lock() {
+        Ok(mut ch) => ch.wait(),
+        Err(_) => Err(std::io::Error::new(std::io::ErrorKind::Other, "lock")),
+    };
+    if let Ok(mut g) = ACTIVE.lock() {
+        *g = None;
+    }
     let err = reader.join().unwrap_or_default();
+    if is_cancelled() {
+        return Err("Cancelled".into());
+    }
     match status {
         Ok(s) if s.success() => Ok(()),
         _ => Err(tail(&err)),
@@ -361,8 +423,34 @@ fn crop_filter(ratio: &str) -> Result<String, String> {
     Ok(format!("crop='min(iw,ih*{w}/{h})':'min(ih,iw*{h}/{w})'"))
 }
 
+fn writable(dir: &Path) -> bool {
+    let t = dir.join(format!(".revamper_probe_{}", std::process::id()));
+    match std::fs::File::create(&t) {
+        Ok(_) => {
+            let _ = std::fs::remove_file(&t);
+            true
+        }
+        Err(_) => false,
+    }
+}
+
+/// Next to the original, or Documents\Revamper when that folder is read-only.
+fn out_dir(src: &Path) -> PathBuf {
+    let d = src.parent().unwrap_or_else(|| Path::new(".")).to_path_buf();
+    if writable(&d) {
+        return d;
+    }
+    if let Ok(up) = std::env::var("USERPROFILE") {
+        let f = PathBuf::from(up).join("Documents").join("Revamper");
+        if std::fs::create_dir_all(&f).is_ok() {
+            return f;
+        }
+    }
+    d
+}
+
 fn out_path(src: &Path, suffix: &str, ext: &str) -> PathBuf {
-    let dir = src.parent().unwrap_or_else(|| Path::new("."));
+    let dir = out_dir(src);
     let stem = src.file_stem().and_then(|s| s.to_str()).unwrap_or("output");
     let base = if suffix.is_empty() { stem.to_string() } else { format!("{stem}_{suffix}") };
     let mut p = dir.join(format!("{base}.{ext}"));
@@ -380,12 +468,19 @@ fn finish(ff: &Path, head: Vec<String>, plans: Vec<Vec<String>>, out: &Path, dur
     }
     let mut last = String::from("Encoding failed");
     for plan in plans {
+        if is_cancelled() {
+            return Err("Cancelled".into());
+        }
         let mut args = head.clone();
         args.extend(plan);
         args.push(out.to_string_lossy().to_string());
         prog(if dur.is_some() { Some(0.0) } else { None });
         match run_ffmpeg(ff, &args, dur, prog) {
             Ok(()) => return Ok(out.to_path_buf()),
+            Err(e) if e == "Cancelled" => {
+                let _ = std::fs::remove_file(out);
+                return Err(e);
+            }
             Err(e) => {
                 println!("[job  ] ffmpeg failed: {e}\n[job  ] args: {:?}", args);
                 last = e;
@@ -396,11 +491,54 @@ fn finish(ff: &Path, head: Vec<String>, plans: Vec<Vec<String>>, out: &Path, dur
     Err(last)
 }
 
+// ---------- archives (zip, 7z, rar, tar) ----------
+
+fn is_archive(p: &Path) -> bool {
+    matches!(ext_of(p).as_str(), "zip" | "7z" | "rar" | "tar" | "tgz")
+}
+
+/// Unpacks into a new folder next to the archive, using the tar that ships with Windows 10/11.
+fn extract_archive(file: &Path, prog: &mut dyn FnMut(Option<f64>)) -> Result<PathBuf, String> {
+    prog(None);
+    let stem = file.file_stem().and_then(|s| s.to_str()).unwrap_or("archive").to_string();
+    let dir = out_dir(file);
+    let mut dest = dir.join(&stem);
+    let mut n = 2;
+    while dest.exists() {
+        dest = dir.join(format!("{stem} ({n})"));
+        n += 1;
+    }
+    std::fs::create_dir_all(&dest).map_err(|e| format!("Could not create the folder: {e}"))?;
+    let out = Command::new("tar")
+        .creation_flags(NO_WINDOW)
+        .arg("-xf")
+        .arg(file)
+        .arg("-C")
+        .arg(&dest)
+        .output()
+        .map_err(|e| format!("Could not start tar: {e}"))?;
+    if out.status.success() {
+        Ok(dest)
+    } else {
+        let _ = std::fs::remove_dir_all(&dest);
+        Err(tail(&String::from_utf8_lossy(&out.stderr)))
+    }
+}
+
 // ---------- one file, one action ----------
 
 pub fn process(ff: &Path, action: &str, file: &Path, o: &Options, prog: &mut dyn FnMut(Option<f64>)) -> Result<PathBuf, String> {
     if !matches!(action, "compress" | "convert" | "crop" | "trim" | "extract") {
         return Err(format!("Unknown action: {action}"));
+    }
+    if file.is_dir() {
+        return Err("Folders are not supported yet. Drop the files inside instead.".into());
+    }
+    if !file.exists() {
+        return Err("File not found. It may have been moved or deleted.".into());
+    }
+    if action == "extract" && is_archive(file) {
+        return extract_archive(file, prog);
     }
     let kind = kind_of(file);
     if kind == Kind::Unknown {

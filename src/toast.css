@@ -5,6 +5,9 @@ body{font-family:Rajdhani,system-ui,sans-serif;color:var(--text,#fff)}
 .card[data-state="done"]{cursor:pointer}
 .top{display:flex;align-items:center;gap:8px;font:400 10px "JetBrains Mono",ui-monospace,monospace;letter-spacing:.14em;text-transform:uppercase;color:var(--line,#38e8ff)}
 #msg{flex:1;color:var(--dim,rgba(255,255,255,.5));white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#cancel{border:0;background:none;color:var(--line,#38e8ff);font:400 10px "JetBrains Mono",ui-monospace,monospace;letter-spacing:.14em;text-transform:uppercase;cursor:pointer;padding:0}
+#cancel:hover{color:var(--hot,#fff)}
+.card:not([data-state="running"]) #cancel{display:none}
 #x{border:0;background:none;color:var(--dim,rgba(255,255,255,.5));font-size:12px;cursor:pointer;padding:0 14px 0 0}
 #x:hover{color:var(--hot,#fff)}
 .name{font:600 16px Rajdhani,system-ui,sans-serif;letter-spacing:.04em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}

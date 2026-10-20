@@ -146,6 +146,41 @@ fn reveal(path: String) {
 }
 
 #[tauri::command]
+fn cancel_job() {
+    engine::cancel();
+}
+
+const RUN_KEY: &str = r"HKCU\Software\Microsoft\Windows\CurrentVersion\Run";
+
+#[tauri::command]
+fn get_autostart() -> bool {
+    std::process::Command::new("reg")
+        .args(["query", RUN_KEY, "/v", "Revamper"])
+        .creation_flags(0x0800_0000)
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false)
+}
+
+#[tauri::command]
+fn set_autostart(enabled: bool) -> Result<(), String> {
+    let mut c = std::process::Command::new("reg");
+    if enabled {
+        let exe = std::env::current_exe().map_err(|e| e.to_string())?;
+        let val = format!("\"{}\" --autostart", exe.display());
+        c.args(["add", RUN_KEY, "/v", "Revamper", "/t", "REG_SZ", "/d", val.as_str(), "/f"]);
+    } else {
+        c.args(["delete", RUN_KEY, "/v", "Revamper", "/f"]);
+    }
+    let out = c.creation_flags(0x0800_0000).output().map_err(|e| e.to_string())?;
+    if out.status.success() || !enabled {
+        Ok(())
+    } else {
+        Err("Could not change the startup setting".into())
+    }
+}
+
+#[tauri::command]
 fn run_action(app: AppHandle, action: String, paths: Vec<String>, options: Option<Options>) {
     let opts = options.unwrap_or_default();
     let id = now_ms() as u64;
@@ -158,6 +193,7 @@ fn run_action(app: AppHandle, action: String, paths: Vec<String>, options: Optio
 }
 
 fn run_job(app: &AppHandle, id: u64, action: &str, paths: Vec<String>, opts: &Options) {
+    engine::reset_cancel();
     let send = |state: &'static str, name: &str, index: usize, total: usize, percent: Option<f64>, message: String, output: Option<String>| {
         let _ = app.emit(
             "job-update",
@@ -182,6 +218,7 @@ fn run_job(app: &AppHandle, id: u64, action: &str, paths: Vec<String>, opts: &Op
         });
         match res {
             Ok(out) => send("done", &name, 1, 1, Some(100.0), "Saved".into(), Some(out.to_string_lossy().to_string())),
+            Err(e) if e == "Cancelled" => send("cancelled", &name, 1, 1, None, "Stopped".into(), None),
             Err(e) => send("error", &name, 1, 1, None, e, None),
         }
         return;
@@ -201,6 +238,10 @@ fn run_job(app: &AppHandle, id: u64, action: &str, paths: Vec<String>, opts: &Op
         });
         match res {
             Ok(out) => send("done", &name, index, total, Some(100.0), "Saved".into(), Some(out.to_string_lossy().to_string())),
+            Err(e) if e == "Cancelled" => {
+                send("cancelled", &name, index, total, None, "Stopped".into(), None);
+                break;
+            }
             Err(e) => {
                 println!("[job  ] {action} failed on {name}: {e}");
                 send("error", &name, index, total, None, e, None)
@@ -282,7 +323,8 @@ fn open_settings(app: &AppHandle) {
 
 fn main() {
     tauri::Builder::default()
-        .invoke_handler(tauri::generate_handler![log, run_action, hide_toast, reveal])
+        .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| open_settings(app)))
+        .invoke_handler(tauri::generate_handler![log, run_action, hide_toast, reveal, cancel_job, get_autostart, set_autostart])
         .setup(|app| {
             let win = app.get_webview_window("overlay").expect("overlay window missing");
             let handle = app.handle().clone();
@@ -315,7 +357,10 @@ fn main() {
                 .focused(false)
                 .visible(false)
                 .build()?;
-            open_settings(app.handle());
+            // a normal launch shows Settings so you can see it is running; the startup entry stays in the tray
+            if !std::env::args().any(|a| a == "--autostart") {
+                open_settings(app.handle());
+            }
             Ok(())
         })
         .run(tauri::generate_context!())

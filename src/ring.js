@@ -6,7 +6,7 @@ export const ACTIONS=[
  {n:"Crop",sub:"frame and ratio",g:"M-4 -8V4H8M-8 -4H4V8"},
  {n:"Trim",sub:"set in and out",g:"M-7 -4L7 5M-7 5L7 -4"},
  {n:"Merge",sub:"photos, video, audio",g:"M-7 -7L0 0M7 -7L0 0M0 0V8"},
- {n:"Extract",sub:"audio from video",g:"M0 -8V3M-4 -1L0 3L4 -1M-7 7H7"}
+ {n:"Extract",sub:"zip files, video audio",g:"M0 -8V3M-4 -1L0 3L4 -1M-7 7H7"}
 ];
 const f=n=>(+n).toFixed(2), P=(r,a)=>[C+r*Math.cos(a),C+r*Math.sin(a)], D=d=>d*Math.PI/180;
 const sector=(ri,ro,a0,a1)=>{const[x0,y0]=P(ro,a0),[x1,y1]=P(ro,a1),[x2,y2]=P(ri,a1),[x3,y3]=P(ri,a0);return `M${f(x0)} ${f(y0)}A${ro} ${ro} 0 0 1 ${f(x1)} ${f(y1)}L${f(x2)} ${f(y2)}A${ri} ${ri} 0 0 0 ${f(x3)} ${f(y3)}Z`};

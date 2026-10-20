@@ -13,7 +13,7 @@ use engine::Options;
 use serde::Serialize;
 use std::{
     os::windows::process::CommandExt,
-    path::PathBuf,
+    path::{Path, PathBuf},
     sync::Mutex,
     thread,
     time::{Duration, Instant, SystemTime, UNIX_EPOCH},
@@ -147,6 +147,59 @@ fn reveal(path: String) {
     let _ = std::process::Command::new("explorer.exe")
         .raw_arg(format!("/select,\"{}\"", path))
         .spawn();
+}
+
+#[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct OptionsPayload {
+    action: String,
+    paths: Vec<String>,
+    kind: &'static str,
+    duration: Option<f64>,
+    thumb: Option<String>,
+}
+
+/// Opens the small Trim / Crop panel, centred on the screen, with a preview of the first file.
+#[tauri::command]
+async fn open_options(app: AppHandle, action: String, paths: Vec<String>, height: Option<f64>) -> Result<(), String> {
+    let first = paths.first().ok_or("No files")?.clone();
+    let ff = engine::find_ffmpeg().ok_or("FFmpeg not found")?;
+    let info = if action == "crop" || action == "trim" {
+        engine::media_info(&ff, Path::new(&first))
+    } else {
+        engine::MediaInfo { kind: "", duration: None, thumb: None }
+    };
+    let w = app.get_webview_window("options").ok_or("Options window missing")?;
+    if let Some(h) = height {
+        let _ = w.set_size(tauri::LogicalSize::new(560.0, h));
+    }
+    if let Ok(size) = w.outer_size() {
+        let r = primary_work_area();
+        let x = r.left + ((r.right - r.left) - size.width as i32) / 2;
+        let y = r.top + ((r.bottom - r.top) - size.height as i32) / 2;
+        let _ = w.set_position(PhysicalPosition::new(x, y));
+    }
+    let _ = app.emit_to(
+        "options",
+        "options-open",
+        OptionsPayload { action, paths, kind: info.kind, duration: info.duration, thumb: info.thumb },
+    );
+    let _ = w.show();
+    let _ = w.set_focus();
+    Ok(())
+}
+
+#[tauri::command]
+fn hide_options(app: AppHandle) {
+    if let Some(w) = app.get_webview_window("options") {
+        let _ = w.hide();
+    }
+}
+
+#[tauri::command]
+async fn thumb(path: String, t: f64) -> Result<String, String> {
+    let ff = engine::find_ffmpeg().ok_or("FFmpeg not found")?;
+    engine::thumbnail(&ff, Path::new(&path), Some(t))
 }
 
 #[tauri::command]
@@ -330,7 +383,7 @@ fn main() {
     rlogf!("[rust ] Revamper starting");
     tauri::Builder::default()
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| open_settings(app)))
-        .invoke_handler(tauri::generate_handler![log, run_action, hide_toast, reveal, cancel_job, get_autostart, set_autostart])
+        .invoke_handler(tauri::generate_handler![log, run_action, hide_toast, reveal, cancel_job, get_autostart, set_autostart, open_options, hide_options, thumb])
         .setup(|app| {
             let win = app.get_webview_window("overlay").expect("overlay window missing");
             let handle = app.handle().clone();
@@ -366,6 +419,17 @@ fn main() {
                 .resizable(false)
                 .shadow(false)
                 .focused(false)
+                .visible(false)
+                .build()?;
+            WebviewWindowBuilder::new(app.handle(), "options", WebviewUrl::App("options.html".into()))
+                .title("Revamper")
+                .inner_size(560.0, 600.0)
+                .decorations(false)
+                .transparent(true)
+                .always_on_top(true)
+                .skip_taskbar(true)
+                .resizable(false)
+                .shadow(false)
                 .visible(false)
                 .build()?;
             // a normal launch shows Settings so you can see it is running; the startup entry stays in the tray

@@ -6,6 +6,7 @@ import "./fonts.js";
 import "./ring.css";
 import { RingView, sliceAt, ACTIONS, C } from "./ring.js";
 import { loadSettings, applyPalette } from "./palettes.js";
+import { kindsOf, needsPanel, panelHeight } from "./kinds.js";
 
 // The ring is drawn at 600x600 and shown at half size. The window in tauri.conf.json must be 600 * SCALE.
 const SCALE = 0.75;
@@ -81,7 +82,13 @@ getCurrentWebview().onDragDropEvent((event) => {
     log(`DROP on slice: ${idx >= 0 ? ACTIONS[idx].n : "none (outside ring)"} | files: ${p.paths.join(" ; ")}`);
     if (idx >= 0) {
       view.flash(idx);
-      invoke("run_action", { action: ACTIONS[idx].n.toLowerCase(), paths: p.paths, options: settings.actions }).catch((e) => log("run_action failed: " + e));
+      const act = ACTIONS[idx].n.toLowerCase();
+      // Actions with choices open a small panel first (unless "ask each time" is off in Settings)
+      const kinds = kindsOf(p.paths);
+      const panel = needsPanel(act, kinds, settings.actions.ask !== false);
+      const cmd = panel ? "open_options" : "run_action";
+      const args = panel ? { action: act, paths: p.paths, height: panelHeight(act, kinds) } : { action: act, paths: p.paths, options: settings.actions };
+      invoke(cmd, args).catch((e) => log(cmd + " failed: " + e));
     }
     view.setHot(-1);
   } else if (p.type === "leave") {

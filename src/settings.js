@@ -101,3 +101,8 @@ invoke("get_autostart").then((on) => { auto.checked = !!on; }).catch(() => {});
 auto.addEventListener("change", () => {
   invoke("set_autostart", { enabled: auto.checked }).catch(() => { auto.checked = !auto.checked; });
 });
+
+// Ask for options on each drop
+const ask = document.getElementById("ask");
+ask.checked = s.actions.ask !== false;
+ask.addEventListener("change", () => { s.actions.ask = ask.checked; commit(); });

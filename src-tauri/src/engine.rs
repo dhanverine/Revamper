@@ -59,6 +59,9 @@ pub struct Options {
     pub audio_fmt: String, // mp3 | wav | flac | opus | m4a
     pub crop: String,      // 1:1, 16:9 ...
     pub image_layout: String, // row | column (photo merge)
+    pub crop_x: f64,       // 0..1, where the crop box sits horizontally
+    pub crop_y: f64,       // 0..1, vertically
+    pub crop_scale: f64,   // 0.1..1, size of the crop box relative to the biggest one that fits
     pub trim_start: f64,
     pub trim_end: f64, // 0 = to the end
 }
@@ -72,6 +75,9 @@ impl Default for Options {
             audio_fmt: "mp3".into(),
             crop: "1:1".into(),
             image_layout: "row".into(),
+            crop_x: 0.5,
+            crop_y: 0.5,
+            crop_scale: 1.0,
             trim_start: 0.0,
             trim_end: 10.0,
         }
@@ -428,13 +434,15 @@ fn audio_keep_target(e: &str) -> &'static str {
     }
 }
 
-fn crop_filter(ratio: &str) -> Result<String, String> {
+fn crop_filter(ratio: &str, fx: f64, fy: f64, sc: f64) -> Result<String, String> {
     let (a, b) = ratio.split_once(':').ok_or("Bad crop ratio")?;
     let (w, h): (u32, u32) = (a.trim().parse().map_err(|_| "Bad crop ratio")?, b.trim().parse().map_err(|_| "Bad crop ratio")?);
     if w == 0 || h == 0 {
         return Err("Bad crop ratio".into());
     }
-    Ok(format!("crop='min(iw,ih*{w}/{h})':'min(ih,iw*{h}/{w})'"))
+    let (fx, fy) = (fx.clamp(0.0, 1.0), fy.clamp(0.0, 1.0));
+    let sc = sc.clamp(0.1, 1.0);
+    Ok(format!("crop='min(iw,ih*{w}/{h})*{sc:.4}':'min(ih,iw*{h}/{w})*{sc:.4}':'(iw-out_w)*{fx:.4}':'(ih-out_h)*{fy:.4}'"))
 }
 
 fn writable(dir: &Path) -> bool {
@@ -503,6 +511,68 @@ fn finish(ff: &Path, head: Vec<String>, plans: Vec<Vec<String>>, out: &Path, dur
         }
     }
     Err(last)
+}
+
+// ---------- previews for the Trim and Crop panel ----------
+
+fn b64(data: &[u8]) -> String {
+    const T: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    let mut o = String::with_capacity(data.len() * 4 / 3 + 4);
+    for ch in data.chunks(3) {
+        let b1 = *ch.get(1).unwrap_or(&0) as u32;
+        let b2 = *ch.get(2).unwrap_or(&0) as u32;
+        let n = ((ch[0] as u32) << 16) | (b1 << 8) | b2;
+        o.push(T[((n >> 18) & 63) as usize] as char);
+        o.push(T[((n >> 12) & 63) as usize] as char);
+        o.push(if ch.len() > 1 { T[((n >> 6) & 63) as usize] as char } else { '=' });
+        o.push(if ch.len() > 2 { T[(n & 63) as usize] as char } else { '=' });
+    }
+    o
+}
+
+/// One frame as a small JPEG data URL (for photos, t is ignored).
+pub fn thumbnail(ff: &Path, file: &Path, t: Option<f64>) -> Result<String, String> {
+    static N: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
+    let id = N.fetch_add(1, Ordering::SeqCst);
+    let tmp = std::env::temp_dir().join(format!("revamper_thumb_{}_{}.jpg", std::process::id(), id));
+    let mut c = cmd(ff);
+    c.args(["-hide_banner", "-nostdin", "-y"]);
+    if let (Some(t), Kind::Video) = (t, kind_of(file)) {
+        c.arg("-ss").arg(format!("{:.3}", t.max(0.0)));
+    }
+    let out = c
+        .arg("-i")
+        .arg(file)
+        .args(["-frames:v", "1", "-vf", "scale=640:-2", "-q:v", "5"])
+        .arg(&tmp)
+        .output()
+        .map_err(|e| format!("Could not start FFmpeg: {e}"))?;
+    let bytes = std::fs::read(&tmp).map_err(|_| tail(&String::from_utf8_lossy(&out.stderr)))?;
+    let _ = std::fs::remove_file(&tmp);
+    Ok(format!("data:image/jpeg;base64,{}", b64(&bytes)))
+}
+
+pub struct MediaInfo {
+    pub kind: &'static str,
+    pub duration: Option<f64>,
+    pub thumb: Option<String>,
+}
+
+pub fn media_info(ff: &Path, file: &Path) -> MediaInfo {
+    let kind = kind_of(file);
+    let name = match kind {
+        Kind::Image => "image",
+        Kind::Audio => "audio",
+        Kind::Video => "video",
+        Kind::Unknown => "unknown",
+    };
+    let duration = if kind == Kind::Image { None } else { probe(ff, file).duration };
+    let thumb = match kind {
+        Kind::Image => thumbnail(ff, file, None).ok(),
+        Kind::Video => thumbnail(ff, file, Some(duration.map(|d| (d * 0.1).min(1.0)).unwrap_or(0.0))).ok(),
+        _ => None,
+    };
+    MediaInfo { kind: name, duration, thumb }
 }
 
 // ---------- archives (zip, 7z, rar, tar) ----------
@@ -580,7 +650,7 @@ pub fn process(ff: &Path, action: &str, file: &Path, o: &Options, prog: &mut dyn
                 image_keep_target(&ext_in)
             };
             if action == "crop" {
-                vf.push(crop_filter(&o.crop)?);
+                vf.push(crop_filter(&o.crop, o.crop_x, o.crop_y, o.crop_scale)?);
             }
             plans = vec![image_args(have, &target, q)?];
             let suffix = match action { "compress" => "compressed", "crop" => "cropped", _ => "" };
@@ -622,7 +692,7 @@ pub fn process(ff: &Path, action: &str, file: &Path, o: &Options, prog: &mut dyn
                     target = (if target == "mp4" { "mkv" } else { "mp4" }).to_string();
                 }
                 if action == "crop" {
-                    vf.push(crop_filter(&o.crop)?);
+                    vf.push(crop_filter(&o.crop, o.crop_x, o.crop_y, o.crop_scale)?);
                 }
                 vf.push("scale=trunc(iw/2)*2:trunc(ih/2)*2".into());
                 plans = video_plans(have, q, &target);

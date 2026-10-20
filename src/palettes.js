@@ -10,7 +10,7 @@ export const DESIGNS = [
   { id: "reactor", name: "Reactor", blurb: "Hex hub, bold plate arcs, dotted burst" },
   { id: "console", name: "Console", blurb: "Round hub, corner brackets, side readouts, scan sweep" },
 ];
-export const DEFAULTS = { design: "reactor", palette: "sanzo", custom: { line: "#38e8ff", hot: "#f6e700", drop: "#ff7a2f" }, actions: { quality: "balanced", videoFmt: "mp4", imageFmt: "jpg", audioFmt: "mp3", crop: "1:1", imageLayout: "row", trimStart: 0, trimEnd: 10 } };
+export const DEFAULTS = { design: "reactor", palette: "sanzo", custom: { line: "#38e8ff", hot: "#f6e700", drop: "#ff7a2f" }, actions: { ask: true, quality: "balanced", videoFmt: "mp4", imageFmt: "jpg", audioFmt: "mp3", crop: "1:1", imageLayout: "row", trimStart: 0, trimEnd: 10 } };
 const KEY = "revamper-settings";
 
 export function loadSettings() {

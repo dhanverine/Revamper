@@ -5,7 +5,8 @@
   "windows": [
     "overlay",
     "settings",
-    "toast"
+    "toast",
+    "options"
   ],
   "permissions": [
     "core:default"

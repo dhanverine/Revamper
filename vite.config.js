@@ -7,6 +7,6 @@ export default defineConfig({
     watch: { ignored: ["**/src-tauri/**", "**/vendor/**"] },
   },
   build: {
-    rollupOptions: { input: { main: "index.html", settings: "settings.html", toast: "toast.html" } },
+    rollupOptions: { input: { main: "index.html", settings: "settings.html", toast: "toast.html", options: "options.html" } },
   },
 });

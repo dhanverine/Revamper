@@ -1,0 +1,45 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Revamper</title>
+  </head>
+  <body>
+    <div class="card" id="card">
+      <header>
+        <span id="title">OPTIONS</span>
+        <span id="file"></span>
+        <button id="x" aria-label="Close">&#x2715;</button>
+      </header>
+
+      <div class="stage" id="stage" hidden>
+        <img id="img" alt="" draggable="false" />
+        <div class="cropbox" id="crop" hidden><i class="hd" data-x="0" data-y="0"></i><i class="hd" data-x="1" data-y="0"></i><i class="hd" data-x="0" data-y="1"></i><i class="hd" data-x="1" data-y="1"></i></div>
+        <div class="empty" id="empty" hidden></div>
+      </div>
+
+      <section id="trimUi" hidden>
+        <div class="track" id="track">
+          <div class="fill" id="fill"></div>
+          <button class="handle" id="hS" aria-label="Start"></button>
+          <button class="handle" id="hE" aria-label="End"></button>
+        </div>
+        <div class="times">
+          <label>From<input id="tS" inputmode="decimal" /></label>
+          <span id="keep"></span>
+          <label>To<input id="tE" inputmode="decimal" /></label>
+        </div>
+      </section>
+
+      <section id="rows"></section>
+      <p class="hint" id="hint"></p>
+
+      <footer>
+        <button id="cancel" class="ghost">Cancel</button>
+        <button id="run" class="go">Run</button>
+      </footer>
+    </div>
+    <script type="module" src="/src/options.js"></script>
+  </body>
+</html>

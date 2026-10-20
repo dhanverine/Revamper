@@ -5,6 +5,10 @@
 
 mod engine;
 
+macro_rules! rlogf {
+    ($($arg:tt)*) => { engine::rlog(&format!($($arg)*)) };
+}
+
 use engine::Options;
 use serde::Serialize;
 use std::{
@@ -99,7 +103,7 @@ fn park(win: &WebviewWindow) {
 
 #[tauri::command]
 fn log(msg: String) {
-    println!("[ui   ] {msg}");
+    rlogf!("[ui   ] {msg}");
 }
 
 // ---------- jobs ----------
@@ -184,7 +188,7 @@ fn set_autostart(enabled: bool) -> Result<(), String> {
 fn run_action(app: AppHandle, action: String, paths: Vec<String>, options: Option<Options>) {
     let opts = options.unwrap_or_default();
     let id = now_ms() as u64;
-    println!("[job  ] {action} on {} file(s)", paths.len());
+    rlogf!("[job  ] {action} on {} file(s)", paths.len());
     show_toast(&app);
     thread::spawn(move || {
         let _turn = QUEUE.lock().unwrap_or_else(|e| e.into_inner());
@@ -243,7 +247,7 @@ fn run_job(app: &AppHandle, id: u64, action: &str, paths: Vec<String>, opts: &Op
                 break;
             }
             Err(e) => {
-                println!("[job  ] {action} failed on {name}: {e}");
+                rlogf!("[job  ] {action} failed on {name}: {e}");
                 send("error", &name, index, total, None, e, None)
             }
         }
@@ -259,7 +263,7 @@ enum State {
 fn poll(win: WebviewWindow, app: AppHandle) {
     let size = win.outer_size().unwrap();
     let (hw, hh) = (size.width as i32 / 2, size.height as i32 / 2);
-    println!("[rust ] overlay size {}x{} px, polling every {} ms", size.width, size.height, POLL_MS);
+    rlogf!("[rust ] overlay size {}x{} px, polling every {} ms", size.width, size.height, POLL_MS);
     park(&win);
     let mut state = State::Idle;
     loop {
@@ -285,7 +289,7 @@ fn poll(win: WebviewWindow, app: AppHandle) {
                     }
                     let _ = win.set_position(PhysicalPosition::new(nx, ny));
                     let _ = app.emit("menu-open", serde_json::json!({ "ts": now_ms(), "x": x, "y": y }));
-                    println!(
+                    rlogf!(
                         "[rust ] OPEN at ({x},{y}); ring placed at ({nx},{ny}){}; set_position + emit took {:?}",
                         if nx != x - hw || ny != y - hh { " (shifted to stay on screen)" } else { "" },
                         t.elapsed()
@@ -299,7 +303,7 @@ fn poll(win: WebviewWindow, app: AppHandle) {
                     thread::sleep(Duration::from_millis(400));
                     let _ = app.emit("menu-close", serde_json::json!({}));
                     park(&win);
-                    println!("[rust ] CLOSE (button released)");
+                    rlogf!("[rust ] CLOSE (button released)");
                     state = State::Idle;
                 }
             }
@@ -322,13 +326,20 @@ fn open_settings(app: &AppHandle) {
 }
 
 fn main() {
+    std::panic::set_hook(Box::new(|info| engine::rlog(&format!("[panic] {info}"))));
+    rlogf!("[rust ] Revamper starting");
     tauri::Builder::default()
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| open_settings(app)))
         .invoke_handler(tauri::generate_handler![log, run_action, hide_toast, reveal, cancel_job, get_autostart, set_autostart])
         .setup(|app| {
             let win = app.get_webview_window("overlay").expect("overlay window missing");
             let handle = app.handle().clone();
-            thread::spawn(move || poll(win, handle));
+            thread::spawn(move || loop {
+                let (w, h) = (win.clone(), handle.clone());
+                let r = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| poll(w, h)));
+                rlogf!("[rust ] drag watcher stopped ({}), restarting", if r.is_err() { "panic" } else { "returned" });
+                thread::sleep(Duration::from_millis(500));
+            });
 
             let settings_i = MenuItem::with_id(app, "settings", "Settings", true, None::<&str>)?;
             let quit_i = MenuItem::with_id(app, "quit", "Quit Revamper", true, None::<&str>)?;

@@ -13,6 +13,20 @@ use std::{
     thread,
 };
 
+/// Prints and appends to %LOCALAPPDATA%\\Revamper\\log.txt so problems on installed builds can be diagnosed.
+pub fn rlog(msg: &str) {
+    println!("{msg}");
+    if let Ok(dir) = std::env::var("LOCALAPPDATA") {
+        let d = PathBuf::from(dir).join("Revamper");
+        let _ = std::fs::create_dir_all(&d);
+        if let Ok(mut f) = std::fs::OpenOptions::new().create(true).append(true).open(d.join("log.txt")) {
+            use std::io::Write;
+            let ms = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_millis()).unwrap_or(0);
+            let _ = writeln!(f, "{ms} {msg}");
+        }
+    }
+}
+
 static CANCELLED: AtomicBool = AtomicBool::new(false);
 static ACTIVE: Mutex<Option<Arc<Mutex<Child>>>> = Mutex::new(None);
 
@@ -482,7 +496,7 @@ fn finish(ff: &Path, head: Vec<String>, plans: Vec<Vec<String>>, out: &Path, dur
                 return Err(e);
             }
             Err(e) => {
-                println!("[job  ] ffmpeg failed: {e}\n[job  ] args: {:?}", args);
+                rlog(&format!("[job  ] ffmpeg failed: {e}\n[job  ] args: {:?}", args));
                 last = e;
                 let _ = std::fs::remove_file(out);
             }
